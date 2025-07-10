@@ -60,35 +60,49 @@ export const BracketMatchCard: React.FC<BracketMatchCardProps> = ({ match, posit
           </div>
         </div>
         {/* Team A */}
-        <div className={`flex items-center justify-between px-3 py-2 ${match.winner?.id === match.participant1?.id ? 'bg-[#1e1e1e]' : 'bg-[#1a1a1a]'} border-l-4 border-yellow-600`}>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">#{getDisplaySeed(match.participant1)}</span>
-            <div className="w-6 h-6 bg-[#333] rounded-sm overflow-hidden">
-              <img src={getDisplayLogo(match.participant1)} alt={getDisplayName(match.participant1, match.slotLabel1, true) || "TBD"} className="w-full h-full object-cover" />
-            </div>
-            <span className={`font-medium ${match.winner?.id === match.participant1?.id ? 'text-yellow-500' : 'text-white'}`}>
-              {getDisplayName(match.participant1, match.slotLabel1, true)}
-            </span>
-          </div>
-          <div className="flex items-center">
-            <span className={match.winner?.id === match.participant1?.id ? 'text-yellow-500 font-medium' : 'text-gray-400'}>{match.winner?.id === match.participant1?.id ? '1' : '0'}</span>
-          </div>
-        </div>
+<div className={`flex items-center justify-between px-3 py-2 ${match.winner?.id === match.participant1?.id ? 'bg-[#1e1e1e]' : 'bg-[#1a1a1a]'} border-l-4 border-yellow-600`}>
+  <div className="flex items-center gap-2">
+    <span className="text-xs text-gray-500">#{getDisplaySeed(match.participant1)}</span>
+    <div className="w-6 h-6 bg-[#333] rounded-sm overflow-hidden">
+      <img src={getDisplayLogo(match.participant1)} alt={getDisplayName(match.participant1, match.slotLabel1, true) || "TBD"} className="w-full h-full object-cover" />
+    </div>
+    <span className={`font-medium ${match.winner?.id === match.participant1?.id ? 'text-yellow-500' : 'text-white'}`}>
+      {getDisplayName(match.participant1, match.slotLabel1, true)}
+    </span>
+    {/* DODAJ ZNACZNIK DSQ */}
+    {(match.participant1?.status === 'disqualified' ||
+      (match.walkover && match.winner?.id === match.participant2?.id)) && (
+      <span className="ml-2 px-2 py-1 text-xs bg-red-700 text-white rounded" title="Dyskwalifikacja">DSQ</span>
+    )}
+  </div>
+  <div className="flex items-center gap-1">
+    <span className={`text-sm ${match.winner?.id === match.participant1?.id ? 'text-yellow-500 font-bold' : 'text-gray-400'}`}>
+      {match.winner?.id === match.participant1?.id ? '1' : '0'}
+    </span>
+  </div>
+</div>
         {/* Team B */}
-        <div className={`flex items-center justify-between px-3 py-2 ${match.winner?.id === match.participant2?.id ? 'bg-[#1e1e1e]' : 'bg-[#151515]'} border-l-4 border-blue-600`}>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">#{getDisplaySeed(match.participant2)}</span>
-            <div className="w-6 h-6 bg-[#333] rounded-sm overflow-hidden">
-              <img src={getDisplayLogo(match.participant2)} alt={getDisplayName(match.participant2, match.slotLabel2, false) || "TBD"} className="w-full h-full object-cover" />
-            </div>
-            <span className={`font-medium ${match.winner?.id === match.participant2?.id ? 'text-yellow-500' : 'text-white'}`}>
-              {getDisplayName(match.participant2, match.slotLabel2, false)}
-            </span>
-          </div>
-          <div className="flex items-center">
-            <span className={match.winner?.id === match.participant2?.id ? 'text-yellow-500 font-medium' : 'text-gray-400'}>{match.winner?.id === match.participant2?.id ? '1' : '0'}</span>
-          </div>
-        </div>
+<div className={`flex items-center justify-between px-3 py-2 ${match.winner?.id === match.participant2?.id ? 'bg-[#1e1e1e]' : 'bg-[#1a1a1a]'} border-l-4 border-blue-600`}>
+  <div className="flex items-center gap-2">
+    <span className="text-xs text-gray-500">#{getDisplaySeed(match.participant2)}</span>
+    <div className="w-6 h-6 bg-[#333] rounded-sm overflow-hidden">
+      <img src={getDisplayLogo(match.participant2)} alt={getDisplayName(match.participant2, match.slotLabel2, false) || "TBD"} className="w-full h-full object-cover" />
+    </div>
+    <span className={`font-medium ${match.winner?.id === match.participant2?.id ? 'text-yellow-500' : 'text-white'}`}>
+      {getDisplayName(match.participant2, match.slotLabel2, false)}
+    </span>
+    {/* DODAJ ZNACZNIK DSQ */}
+    {(match.participant2?.status === 'disqualified' ||
+      (match.walkover && match.winner?.id === match.participant1?.id)) && (
+      <span className="ml-2 px-2 py-1 text-xs bg-red-700 text-white rounded" title="Dyskwalifikacja">DSQ</span>
+    )}
+  </div>
+  <div className="flex items-center gap-1">
+    <span className={`text-sm ${match.winner?.id === match.participant2?.id ? 'text-yellow-500 font-bold' : 'text-gray-400'}`}>
+      {match.winner?.id === match.participant2?.id ? '1' : '0'}
+    </span>
+  </div>
+</div>
         {/* Winner select (only if both participants are real teams) */}
         {editable && !match.winner && match.participant1 && match.participant2 && 
           !match.participant1.placeholder && !match.participant2.placeholder &&

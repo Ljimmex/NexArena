@@ -11,11 +11,13 @@ export function autoAdvanceOnDisqualification(matches: Match[], participants: Pa
       const p2 = match.participant2 ? participants.find(p => p.id === match.participant2!.id) : undefined;
       if (p1?.status === 'disqualified' && p2?.status !== 'disqualified') {
         match.winner = match.participant2;
+        match.walkover = true; // DODAJ znacznik walkover
         changed = true;
         // PRZEPCHNIJ zwycięzcę do kolejnej rundy
         updatedMatches = updateMatchWinner(updatedMatches, match.id, match.participant2.id, participants);
       } else if (p2?.status === 'disqualified' && p1?.status !== 'disqualified') {
         match.winner = match.participant1;
+        match.walkover = true; // DODAJ znacznik walkover
         changed = true;
         updatedMatches = updateMatchWinner(updatedMatches, match.id, match.participant1.id, participants);
       }
@@ -215,31 +217,52 @@ export function walkoverDisqualification(matches: Match[], participants: Partici
   const matchIdx = updatedMatches.findIndex(m => m.id === lastWin.id);
   updatedMatches[matchIdx] = {
     ...lastWin,
-    winner: opponent
+    winner: opponent,
+    walkover: true // DODAJ znacznik walkover
   };
 
-  // 5. Znajdź kolejny mecz (np. półfinał), gdzie winner tej pary gra dalej
+  // 5. Znajdź kolejny mecz, gdzie winner tej pary gra dalej
   const nextRound = lastWin.round + 1;
-  const nextMatch = updatedMatches.find(m =>
-    m.round === nextRound &&
-    ((m.participant1 && m.participant1.id === disqualifiedTeamId) || (m.participant2 && m.participant2.id === disqualifiedTeamId))
+  const nextPosition = Math.ceil(lastWin.position / 2);
+  const nextMatch = updatedMatches.find(
+    m => m.round === nextRound && m.position === nextPosition && !m.thirdPlaceMatch
   );
+
   if (nextMatch) {
-    // Zamień dyskwalifikowaną drużynę na przeciwnika w tym meczu
-    const nextIdx = updatedMatches.findIndex(m => m.id === nextMatch.id);
-    let newNextMatch = { ...nextMatch };
-    if (nextMatch.participant1 && nextMatch.participant1.id === disqualifiedTeamId) {
-      newNextMatch.participant1 = opponent;
-      newNextMatch.slotLabel1 = opponent.name;
+    const nextMatchIndex = updatedMatches.findIndex(m => m.id === nextMatch.id);
+    const updatedNextMatch = { ...nextMatch };
+
+    // Usuń dyskwalifikowaną drużynę z kolejnego meczu i wstaw przeciwnika
+    if (lastWin.position % 2 === 1) {
+      updatedNextMatch.participant1 = opponent;
+      updatedNextMatch.slotLabel1 = opponent.name;
+    } else {
+      updatedNextMatch.participant2 = opponent;
+      updatedNextMatch.slotLabel2 = opponent.name;
     }
-    if (nextMatch.participant2 && nextMatch.participant2.id === disqualifiedTeamId) {
-      newNextMatch.participant2 = opponent;
-      newNextMatch.slotLabel2 = opponent.name;
+
+    // Jeśli kolejny mecz już ma winnera z powodu wcześniejszej dyskwalifikacji, usuń go
+    if (updatedNextMatch.winner && 
+        (updatedNextMatch.winner.id === disqualifiedTeamId || !updatedNextMatch.participant1 || !updatedNextMatch.participant2)) {
+      updatedNextMatch.winner = undefined;
+      updatedNextMatch.walkover = false;
     }
-    // Usuwamy winnera w tym meczu (jeśli był ustawiony)
-    newNextMatch.winner = undefined;
-    updatedMatches[nextIdx] = newNextMatch;
+
+    updatedMatches[nextMatchIndex] = updatedNextMatch;
+
+    // Rekurencyjnie usuń z kolejnych meczów
+    updatedMatches = walkoverDisqualification(updatedMatches, participants, disqualifiedTeamId);
   }
-  // Nie zmieniamy wcześniejszych rund!
+
+  // Obsłuż trzecie miejsce
+  const maxRound = Math.max(...updatedMatches.map(m => m.round));
+  if (lastWin.round === maxRound - 1) {
+    updatedMatches = updateThirdPlaceMatch(updatedMatches);
+  }
+
+  // Po każdej aktualizacji sprawdź, czy ktoś nie jest zdyskwalifikowany i automatycznie awansuj przeciwnika
+  if (participants) {
+    return autoAdvanceOnDisqualification(updatedMatches, participants);
+  }
   return updatedMatches;
-} 
+}

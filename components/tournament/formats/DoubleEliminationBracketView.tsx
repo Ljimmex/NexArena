@@ -389,7 +389,6 @@ export function DoubleEliminationBracketView({ participants, options = {}, class
     }
   }
 
-  // Automatyczna dyskwalifikacja: po każdej zmianie matches lub participants
   useEffect(() => {
     if (!matches || matches.length === 0) return;
     
@@ -397,24 +396,48 @@ export function DoubleEliminationBracketView({ participants, options = {}, class
     const disqualifiedIds = participants.filter(p => p.status === 'disqualified').map(p => p.id);
     if (disqualifiedIds.length === 0) return;
     
-    let updated = matches;
+    console.log('Processing disqualifications for:', disqualifiedIds);
+    
+    let updated = [...matches];
     let changed = false;
     
+    // Najpierw użyj autoAdvanceOnDisqualification dla bieżących meczów
+    try {
+      const autoAdvanced = (generator as any).autoAdvanceOnDisqualification(updated, participants);
+      if (JSON.stringify(autoAdvanced) !== JSON.stringify(updated)) {
+        updated = autoAdvanced;
+        changed = true;
+        console.log('Auto-advance applied');
+      }
+    } catch (error) {
+      console.error('Error during auto-advance:', error);
+    }
+    
+    // Następnie zastosuj walkover dla każdej zdyskwalifikowanej drużyny
     for (const dqId of disqualifiedIds) {
-      // Sprawdź, czy ta drużyna już przegrała wszystkie mecze (czyli nie ma jej w żadnym meczu bez winnera)
-      const hasActiveMatch = updated.some(m => !m.winner && (m.participant1?.id === dqId || m.participant2?.id === dqId));
-      if (hasActiveMatch) {
+      // Sprawdź, czy ta drużyna ma jakiekolwiek mecze (wygrane lub przyszłe)
+      const hasAnyMatch = updated.some(m => 
+        (m.participant1?.id === dqId || m.participant2?.id === dqId)
+      );
+      
+      if (hasAnyMatch) {
         try {
-          updated = (generator as any).walkoverDisqualification(updated, participants, dqId);
-          changed = true;
+          const walkoverResult = (generator as any).walkoverDisqualification(updated, participants, dqId);
+          if (JSON.stringify(walkoverResult) !== JSON.stringify(updated)) {
+            updated = walkoverResult;
+            changed = true;
+            console.log('Walkover applied for:', dqId);
+          }
         } catch (error) {
-          console.error('Error during walkover disqualification:', error);
+          console.error('Error during walkover disqualification for', dqId, ':', error);
         }
       }
     }
     
     if (changed) {
+      console.log('Updating matches after disqualification processing');
       setMatches([...updated]);
+      
       try {
         const newLayoutMatches = generator.calculateBracketLayout(updated);
         setLayoutMatches(newLayoutMatches);
@@ -423,7 +446,8 @@ export function DoubleEliminationBracketView({ participants, options = {}, class
       }
     }
   }, [matches.length, participants.map(p => `${p.id}-${p.status}`).join(',')]); // Stabilniejsze dependencies
-
+  
+  // TAKŻE ZAKTUALIZUJ handleWinnerChange:
   const handleWinnerChange = (matchId: number, winnerId: string) => {
     console.log(`Setting winner for match ${matchId}: ${winnerId}`);
     
@@ -433,8 +457,8 @@ export function DoubleEliminationBracketView({ participants, options = {}, class
     // Pobierz aktualnych uczestników (ze statusami)
     const currentParticipants = getCurrentParticipants();
     
-    // Wywołaj updateMatchWinner z aktualnymi uczestnikami
-    const updatedMatches = generator.updateMatchWinner(matches, matchIdNum, winnerId, currentParticipants);
+    // Wywołaj updateMatchWinnerWithParticipants z aktualnymi uczestnikami
+    const updatedMatches = (generator as any).updateMatchWinnerWithParticipants(matches, matchIdNum, winnerId, currentParticipants);
     console.log('Updated matches:', updatedMatches);
     
     const layoutCalculatedMatches = generator.calculateBracketLayout(updatedMatches);
@@ -449,16 +473,23 @@ export function DoubleEliminationBracketView({ participants, options = {}, class
       console.log(`[handleWinnerChange] Saved matches-stage-${options.stage} to localStorage`);
     }
   }
-
-  // Funkcja do dyskwalifikacji drużyny
+  
+  // I handleDisqualify można uprościć:
   const handleDisqualify = (teamId: string) => {
+    console.log('Manual disqualification triggered for:', teamId);
+    
     // Pobierz aktualnych uczestników (ze statusami)
     const currentParticipants = getCurrentParticipants();
+    
+    // Zastosuj dyskwalifikację
     const updatedMatches = (generator as any).walkoverDisqualification(matches, currentParticipants, teamId);
+    
     setMatches([...updatedMatches]);
     setLayoutMatches(generator.calculateBracketLayout(updatedMatches));
+    
     if (options.stage) {
       localStorage.setItem(`matches-stage-${options.stage}`, JSON.stringify(updatedMatches));
+      console.log(`[handleDisqualify] Saved matches after disqualification`);
     }
   };
 
